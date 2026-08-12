@@ -11,10 +11,16 @@ class FocusSession:
         self.total_loops = total_loops
         self.current_loop = 1
         self.time_left = 0  # seconds remaining; set by start()
+        self.active = False  # True while a session is running
 
     def start(self):
         """Convert study minutes into seconds and store as the countdown value."""
         self.time_left = self.study_minutes * 60
+        self.active = True
+
+    def cancel(self):
+        """Mark the session as no longer active."""
+        self.active = False
 
     def tick(self):
         """Reduce the remaining time by one second."""
@@ -30,7 +36,7 @@ class FocusSessionApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Focus Session Manager")
-        self.root.geometry("400x400")
+        self.root.geometry("400x500")
 
         self.session = None  # will hold a FocusSession once Start Session is pressed
 
@@ -60,6 +66,10 @@ class FocusSessionApp:
         self.start_button = tk.Button(self.root, text="Start Session", command=self.start_session)
         self.start_button.pack(pady=10)
 
+        self.cancel_button = tk.Button(
+        self.root, text="Cancel Session", command=self.cancel_session, state="disabled")
+        self.cancel_button.pack(pady=5)
+
     def reset_gui(self):
         """Re-enable inputs and reset the display after a session ends."""
         self.task_entry.config(state="normal")
@@ -67,10 +77,14 @@ class FocusSessionApp:
         self.rest_entry.config(state="normal")
         self.loops_entry.config(state="normal")
         self.start_button.config(state="normal")
+        self.cancel_button.config(state="disabled")
         self.timer_label.config(text="00:00")
 
     def update_timer(self):
         """Update the countdown display once a second until the session ends."""
+        if not self.session.active:
+            return  # session was cancelled — stop the after() chain
+
         minutes = self.session.time_left // 60
         seconds = self.session.time_left % 60
         self.timer_label.config(text=str(minutes).zfill(2) + ":" + str(seconds).zfill(2))
@@ -82,8 +96,20 @@ class FocusSessionApp:
         self.session.tick()
         self.root.after(1000, self.update_timer)
 
+    def cancel_session(self):
+        """Ask for confirmation, then stop the running session if confirmed."""
+        confirmed = messagebox.askyesno(
+            "Cancel Session", "Are you sure you want to cancel this session?"
+        )
+        if not confirmed:
+            return
+
+        self.session.cancel()
+        self.reset_gui()
+
     def session_complete(self):
         """Notify the user the session finished, then reset the GUI."""
+        self.session.active = False
         messagebox.showinfo("Focus Session Manager", "Session Complete!")
         self.reset_gui()
 
@@ -125,6 +151,7 @@ class FocusSessionApp:
         self.rest_entry.config(state="disabled")
         self.loops_entry.config(state="disabled")
         self.start_button.config(state="disabled")
+        self.cancel_button.config(state="normal")
 
         self.session = FocusSession(task, study_minutes, rest_minutes, total_loops)
         self.session.start()
