@@ -25,19 +25,28 @@ SONG_FILES = {
 class FocusSession:
     """Stores information about the current study session."""
 
-    def __init__(self, task_name, study_minutes, rest_minutes, total_loops):
+    def __init__(self, task_name, study_minutes, rest_minutes):
         self.task_name = task_name
         self.study_minutes = study_minutes
         self.rest_minutes = rest_minutes
-        self.total_loops = total_loops
-        self.current_loop = 1
         self.time_left = 0  # seconds remaining; set by start()
         self.active = False  # True while a session is running
+        self.is_resting = False  # True during the rest period, False during study
 
     def start(self):
         """Convert study minutes into seconds and store as the countdown value."""
         self.time_left = self.study_minutes * 60
+        self.is_resting = False
         self.active = True
+
+    def start_rest(self):
+        """Switch the countdown over to the rest period."""
+        self.time_left = self.rest_minutes * 60
+        self.is_resting = True
+
+    def period_finished(self):
+        """Return True once the current study or rest countdown reaches zero."""
+        return self.time_left <= 0
 
     def cancel(self):
         """Mark the session as no longer active."""
@@ -139,7 +148,7 @@ class FocusSessionApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Focus Session Manager")
-        self.root.geometry("420x580")
+        self.root.geometry("420x650")
 
         self.session = None  # will hold a FocusSession once Start Session is pressed
         self.app_monitor = None  # will hold an AppMonitor once Start Session is pressed
@@ -160,10 +169,6 @@ class FocusSessionApp:
         tk.Label(self.root, text="Rest Duration (minutes):").pack(pady=(10, 0))
         self.rest_entry = tk.Entry(self.root, width=10)
         self.rest_entry.pack(pady=5)
-
-        tk.Label(self.root, text="Number of Loops:").pack(pady=(10, 0))
-        self.loops_entry = tk.Entry(self.root, width=10)
-        self.loops_entry.pack(pady=5)
 
         tk.Label(self.root, text="Approved Applications", font=("Arial", 12, "bold")).pack(pady=(15, 0))
 
@@ -193,6 +198,9 @@ class FocusSessionApp:
         tk.Radiobutton(music_frame, text="Song 3", variable=self.music_var, value="Song 3").grid(row=1, column=0, sticky="w", padx=10)
         tk.Radiobutton(music_frame, text="No Music", variable=self.music_var, value="No Music").grid(row=1, column=1, sticky="w", padx=10)
 
+        self.phase_label = tk.Label(self.root, text="", font=("Arial", 10))
+        self.phase_label.pack(pady=(10, 0))
+
         self.timer_label = tk.Label(self.root, text="00:00", font=("Arial", 36))
         self.timer_label.pack(pady=20)
 
@@ -208,10 +216,10 @@ class FocusSessionApp:
         self.task_entry.config(state="normal")
         self.study_entry.config(state="normal")
         self.rest_entry.config(state="normal")
-        self.loops_entry.config(state="normal")
         self.start_button.config(state="normal")
         self.cancel_button.config(state="disabled")
         self.timer_label.config(text="00:00")
+        self.phase_label.config(text="")
 
     def update_timer(self):
         """Update the countdown display once a second until the session ends."""
@@ -222,7 +230,23 @@ class FocusSessionApp:
         seconds = self.session.time_left % 60
         self.timer_label.config(text=str(minutes).zfill(2) + ":" + str(seconds).zfill(2))
 
-        if self.session.is_complete():
+        self.phase_label.config(text="Rest" if self.session.is_resting else "Study")
+
+        if self.session.period_finished():
+            if not self.session.is_resting:
+                # Study period just ended — move into the rest period.
+                self.session.start_rest()
+
+                self.root.lift()
+                self.root.attributes("-topmost", True)
+                self.root.after_idle(self.root.attributes, "-topmost", False)
+                self.root.focus_force()
+                messagebox.showinfo("Focus Session Manager", "Study period complete! Time for a rest.")
+
+                self.root.after(1000, self.update_timer)
+                return
+
+            # Rest period just ended — the whole session is complete.
             self.session_complete()
             return
 
@@ -286,7 +310,6 @@ class FocusSessionApp:
         task = self.task_entry.get().strip()
         study_minutes = self.parse_positive_int(self.study_entry.get().strip())
         rest_minutes = self.parse_positive_int(self.rest_entry.get().strip())
-        total_loops = self.parse_positive_int(self.loops_entry.get().strip())
 
         if task == "":
             messagebox.showerror("Error", "Please enter a task name.")
@@ -300,20 +323,15 @@ class FocusSessionApp:
             messagebox.showerror("Error", "Please enter a valid rest duration.")
             return
 
-        if total_loops is None:
-            messagebox.showerror("Error", "Please enter a valid number of loops.")
-            return
-
         self.task_entry.config(state="disabled")
         self.study_entry.config(state="disabled")
         self.rest_entry.config(state="disabled")
-        self.loops_entry.config(state="disabled")
         self.start_button.config(state="disabled")
         self.cancel_button.config(state="normal")
 
         allowed_apps = [name for name, var in self.app_vars.items() if var.get()]
 
-        self.session = FocusSession(task, study_minutes, rest_minutes, total_loops)
+        self.session = FocusSession(task, study_minutes, rest_minutes)
         self.session.start()
 
         self.app_monitor = AppMonitor(allowed_apps, self.root)
