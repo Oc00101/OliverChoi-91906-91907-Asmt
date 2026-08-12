@@ -7,6 +7,21 @@ try:
 except ImportError:
     APP_DETECTION_AVAILABLE = False
 
+import threading
+
+try:
+    from playsound import playsound
+    MUSIC_AVAILABLE = True
+except ImportError:
+    MUSIC_AVAILABLE = False
+
+#From pixabay.com, free for commercial use: https://pixabay.com/music/search/study/ 
+SONG_FILES = {
+    "Song 1": "Dependency files/Sound folder/alex-morgan-lofi-study-session-568160.mp3",
+    "Song 2": "Dependency files/Sound folder/alex-morgan-study-lofi-music-548638.mp3",
+    "Song 3": "Dependency files/Sound folder/the_mountain-cosmic-study-143288.mp3",
+}
+
 class FocusSession:
     """Stores information about the current study session."""
 
@@ -77,7 +92,47 @@ class AppMonitor:
             "Unapproved Application Detected",
             "You are currently using an application that is not on your approved list.",
         )
+        
+class MusicPlayer:
+    """Plays a selected background track during a study session, looping it
+    for as long as the session stays active."""
 
+    def __init__(self, selected_song):
+        self.selected_song = selected_song  # one of: "Song 1", "Song 2", "Song 3", "No Music"
+        self.playing = False
+        self._thread = None
+
+    def play(self):
+        """Start playing the selected song on a background thread, if one was chosen."""
+        if self.selected_song == "No Music" or not MUSIC_AVAILABLE:
+            return
+
+        file_path = SONG_FILES.get(self.selected_song)
+        if not file_path:
+            return
+
+        self.playing = True
+        self._thread = threading.Thread(target=self._play_loop, args=(file_path,), daemon=True)
+        self._thread.start()
+
+    def _play_loop(self, file_path):
+        """Keep replaying the file on a background thread until playing is set to False."""
+        while self.playing:
+            try:
+                playsound(file_path)
+            except Exception:
+                break  # e.g. file missing — stop trying rather than looping errors forever
+
+    def stop(self):
+        """Signal playback to stop.
+
+        Note: playsound has no built-in stop() call, so if a loop of the
+        file is already partway through, it will finish that one play-through
+        before the loop condition is checked again — it won't cut off
+        mid-file instantly, but it will not restart afterward.
+        """
+        self.playing = False
+        
 class FocusSessionApp:
     """Creates the GUI, gets user input, and runs the countdown session."""
 
@@ -88,6 +143,7 @@ class FocusSessionApp:
 
         self.session = None  # will hold a FocusSession once Start Session is pressed
         self.app_monitor = None  # will hold an AppMonitor once Start Session is pressed
+        self.music_player = None  # will hold a MusicPlayer once Start Session is pressed
 
         self.create_widgets()
 
@@ -122,7 +178,21 @@ class FocusSessionApp:
 
         if not APP_DETECTION_AVAILABLE:
             tk.Label(self.root, text="(App detection is only supported on Windows, please pip install pygetwindow in cmd)", font=("Arial", 8, "italic"), fg="gray").pack(pady=(0, 5))                
+        
+        if not MUSIC_AVAILABLE:
+            tk.Label(self.root, text="(Music player requires the playsound module, please pip install playsound==1.2.2 in cmd)", font=("Arial", 8, "italic"), fg="gray").pack(pady=(0, 5))
             
+        tk.Label(self.root, text="Music", font=("Arial", 12, "bold")).pack(pady=(15, 0))
+
+        self.music_var = tk.StringVar(value="No Music")
+        music_frame = tk.Frame(self.root)
+        music_frame.pack(pady=5)
+
+        tk.Radiobutton(music_frame, text="Song 1", variable=self.music_var, value="Song 1").grid(row=0, column=0, sticky="w", padx=10)
+        tk.Radiobutton(music_frame, text="Song 2", variable=self.music_var, value="Song 2").grid(row=0, column=1, sticky="w", padx=10)
+        tk.Radiobutton(music_frame, text="Song 3", variable=self.music_var, value="Song 3").grid(row=1, column=0, sticky="w", padx=10)
+        tk.Radiobutton(music_frame, text="No Music", variable=self.music_var, value="No Music").grid(row=1, column=1, sticky="w", padx=10)
+
         self.timer_label = tk.Label(self.root, text="00:00", font=("Arial", 36))
         self.timer_label.pack(pady=20)
 
@@ -184,6 +254,7 @@ class FocusSessionApp:
             return
 
         self.session.cancel()
+        self.music_player.stop()
         self.reset_gui()
 
     def session_complete(self):
@@ -194,6 +265,8 @@ class FocusSessionApp:
         self.root.attributes("-topmost", True)
         self.root.after_idle(self.root.attributes, "-topmost", False)
         self.root.focus_force()
+
+        self.music_player.stop()
 
         messagebox.showinfo("Focus Session Manager", "Session Complete!")
         self.reset_gui()
@@ -246,6 +319,9 @@ class FocusSessionApp:
         self.app_monitor = AppMonitor(allowed_apps, self.root)
         self.update_timer()
         self.check_apps()
+
+        self.music_player = MusicPlayer(self.music_var.get())
+        self.music_player.play()
 
 
 if __name__ == "__main__":
