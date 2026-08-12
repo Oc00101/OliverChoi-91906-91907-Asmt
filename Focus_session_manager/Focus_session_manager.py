@@ -36,7 +36,7 @@ class FocusSessionApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Focus Session Manager")
-        self.root.geometry("400x500")
+        self.root.geometry("420x580")
 
         self.session = None  # will hold a FocusSession once Start Session is pressed
 
@@ -59,6 +59,17 @@ class FocusSessionApp:
         tk.Label(self.root, text="Number of Loops:").pack(pady=(10, 0))
         self.loops_entry = tk.Entry(self.root, width=10)
         self.loops_entry.pack(pady=5)
+
+        tk.Label(self.root, text="Approved Applications", font=("Arial", 12, "bold")).pack(pady=(15, 0))
+
+        self.app_choices = ["Google Chrome", "Microsoft Word", "Calculator", "Spotify"]
+        self.app_vars = {}  # maps app name -> BooleanVar for its checkbox
+
+        for app_name in self.app_choices:
+            var = tk.BooleanVar(value=False)
+            checkbox = tk.Checkbutton(self.root, text=app_name, variable=var)
+            checkbox.pack(anchor="w", padx=40)
+            self.app_vars[app_name] = var
 
         self.timer_label = tk.Label(self.root, text="00:00", font=("Arial", 36))
         self.timer_label.pack(pady=20)
@@ -153,7 +164,10 @@ class FocusSessionApp:
         self.start_button.config(state="disabled")
         self.cancel_button.config(state="normal")
 
+        allowed_apps = [name for name, var in self.app_vars.items() if var.get()]
+
         self.session = FocusSession(task, study_minutes, rest_minutes, total_loops)
+        self.session.allowed_apps = allowed_apps
         self.session.start()
         self.update_timer()
 
