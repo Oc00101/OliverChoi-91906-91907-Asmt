@@ -56,9 +56,6 @@ class FocusSession:
         """Reduce the remaining time by one second."""
         self.time_left -= 1
 
-    def is_complete(self):
-        """Return True once the countdown has reached zero."""
-        return self.time_left <= 0
 
 class AppMonitor:
     """Checks the currently active window against a list of approved applications."""
@@ -121,6 +118,9 @@ class MusicPlayer:
             return
 
         self.playing = True
+        ''' daemon=True means this background thread is automatically killed
+        when the main program exits, so it can't keep Python running in
+        the background after the Tkinter window is closed. '''
         self._thread = threading.Thread(target=self._play_loop, args=(file_path,), daemon=True)
         self._thread.start()
 
@@ -135,7 +135,7 @@ class MusicPlayer:
     def stop(self):
         """Signal playback to stop.
 
-        Note: playsound has no built-in stop() call, so if a loop of the
+        Note to self: playsound has no built-in stop() call, so if a loop of the
         file is already partway through, it will finish that one play-through
         before the loop condition is checked again — it won't cut off
         mid-file instantly, but it will not restart afterward.
@@ -255,8 +255,8 @@ class FocusSessionApp:
 
     def check_apps(self):
         """Periodically check the active window against the approved list."""
-        if not self.session.active:
-            return  # session ended or was cancelled — stop the after() chain
+        if not self.session.active or self.session.is_resting:
+            return  # session ended, was cancelled, or user is on a break
 
         active_title = self.app_monitor.check_active_app()
 
@@ -316,11 +316,11 @@ class FocusSessionApp:
             return
 
         if study_minutes is None:
-            messagebox.showerror("Error", "Please enter a valid study duration.")
+            messagebox.showerror("Error", "Please enter a valid study duration in minutes (whole numbers only).")
             return
 
         if rest_minutes is None:
-            messagebox.showerror("Error", "Please enter a valid rest duration.")
+            messagebox.showerror("Error", "Please enter a valid rest duration in minutes (whole numbers only).")
             return
 
         self.task_entry.config(state="disabled")
@@ -329,15 +329,19 @@ class FocusSessionApp:
         self.start_button.config(state="disabled")
         self.cancel_button.config(state="normal")
 
+        ''' This list loops through every (name, checkbox_variable)
+        pair in app_vars, and keeps the name only if that checkbox is
+        currently ticked (var.get() returns True/False).'''
         allowed_apps = [name for name, var in self.app_vars.items() if var.get()]
 
         self.session = FocusSession(task, study_minutes, rest_minutes)
         self.session.start()
-
+        
         self.app_monitor = AppMonitor(allowed_apps, self.root)
+        # These functions all just check self.session.active to know when to stop.
         self.update_timer()
         self.check_apps()
-
+        
         self.music_player = MusicPlayer(self.music_var.get())
         self.music_player.play()
 
