@@ -1,13 +1,15 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-
 class FocusSession:
     """Stores information about the current study session."""
 
-    def __init__(self, task_name, study_minutes):
+    def __init__(self, task_name, study_minutes, rest_minutes, total_loops):
         self.task_name = task_name
         self.study_minutes = study_minutes
+        self.rest_minutes = rest_minutes
+        self.total_loops = total_loops
+        self.current_loop = 1
         self.time_left = 0  # seconds remaining; set by start()
 
     def start(self):
@@ -21,7 +23,6 @@ class FocusSession:
     def is_complete(self):
         """Return True once the countdown has reached zero."""
         return self.time_left <= 0
-
 
 class FocusSessionApp:
     """Creates the GUI, gets user input, and runs the countdown session."""
@@ -37,19 +38,17 @@ class FocusSessionApp:
 
     def create_widgets(self):
         """Build and lay out all GUI widgets."""
-        tk.Label(self.root, text="Task Name:").pack(pady=(10, 0))
-        self.task_entry = tk.Entry(self.root, width=30)
-        self.task_entry.pack(pady=5)
-
         tk.Label(self.root, text="Study Duration (minutes):").pack(pady=(10, 0))
-        self.duration_var = tk.StringVar()
-        self.duration_menu = ttk.Combobox(
-            self.root,
-            textvariable=self.duration_var,
-            values=["15", "20", "25", "30"],
-            state="readonly",
-        )
-        self.duration_menu.pack(pady=5)
+        self.study_entry = tk.Entry(self.root, width=10)
+        self.study_entry.pack(pady=5)
+
+        tk.Label(self.root, text="Rest Duration (minutes):").pack(pady=(10, 0))
+        self.rest_entry = tk.Entry(self.root, width=10)
+        self.rest_entry.pack(pady=5)
+
+        tk.Label(self.root, text="Number of Loops:").pack(pady=(10, 0))
+        self.loops_entry = tk.Entry(self.root, width=10)
+        self.loops_entry.pack(pady=5)
 
         self.timer_label = tk.Label(self.root, text="00:00", font=("Arial", 36))
         self.timer_label.pack(pady=20)
@@ -60,7 +59,9 @@ class FocusSessionApp:
     def reset_gui(self):
         """Re-enable inputs and reset the display after a session ends."""
         self.task_entry.config(state="normal")
-        self.duration_menu.config(state="readonly")
+        self.study_entry.config(state="normal")
+        self.rest_entry.config(state="normal")
+        self.loops_entry.config(state="normal")
         self.start_button.config(state="normal")
         self.timer_label.config(text="00:00")
 
@@ -82,24 +83,46 @@ class FocusSessionApp:
         messagebox.showinfo("Focus Session Manager", "Session Complete!")
         self.reset_gui()
 
+    def parse_positive_int(self, value):
+        """Return the int value if it's a valid positive whole number, otherwise None."""
+        try:
+            number = int(value)
+        except ValueError:
+            return None
+        if number <= 0:
+            return None
+        return number
+
     def start_session(self):
         """Validate input, create a FocusSession, and start the countdown."""
         task = self.task_entry.get().strip()
-        duration = self.duration_var.get()
+        study_minutes = self.parse_positive_int(self.study_entry.get().strip())
+        rest_minutes = self.parse_positive_int(self.rest_entry.get().strip())
+        total_loops = self.parse_positive_int(self.loops_entry.get().strip())
 
         if task == "":
-            messagebox.showerror("Error", "Please enter a task name you would like to work on.")
+            messagebox.showerror("Error", "Please enter a task name.")
             return
 
-        if duration == "":
-            messagebox.showerror("Error", "Please select a duration.")
+        if study_minutes is None:
+            messagebox.showerror("Error", "Please enter a valid study duration.")
+            return
+
+        if rest_minutes is None:
+            messagebox.showerror("Error", "Please enter a valid rest duration.")
+            return
+
+        if total_loops is None:
+            messagebox.showerror("Error", "Please enter a valid number of loops.")
             return
 
         self.task_entry.config(state="disabled")
-        self.duration_menu.config(state="disabled")
+        self.study_entry.config(state="disabled")
+        self.rest_entry.config(state="disabled")
+        self.loops_entry.config(state="disabled")
         self.start_button.config(state="disabled")
 
-        self.session = FocusSession(task, int(duration))
+        self.session = FocusSession(task, study_minutes, rest_minutes, total_loops)
         self.session.start()
         self.update_timer()
 
