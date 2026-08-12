@@ -38,6 +38,10 @@ class FocusSessionApp:
 
     def create_widgets(self):
         """Build and lay out all GUI widgets."""
+        tk.Label(self.root, text="Task Name:").pack(pady=(10, 0))
+        self.task_entry = tk.Entry(self.root, width=30)
+        self.task_entry.pack(pady=5)
+
         tk.Label(self.root, text="Study Duration (minutes):").pack(pady=(10, 0))
         self.study_entry = tk.Entry(self.root, width=10)
         self.study_entry.pack(pady=5)
