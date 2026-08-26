@@ -187,7 +187,7 @@ class FocusSessionApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Focus Session Manager")
-        self.root.geometry("450x650")
+        self.root.geometry("450x700")
 
         self.session = None  # will hold a FocusSession once Start Session is pressed
         self.app_monitor = None  # will hold an AppMonitor once Start Session is pressed
@@ -251,6 +251,9 @@ class FocusSessionApp:
         self.root, text="Cancel Session", command=self.cancel_session, state="disabled")
         self.cancel_button.pack(pady=5)
 
+        self.history_button = tk.Button(self.root, text="View History", command=self.view_history)
+        self.history_button.pack(pady=5)
+        
     def reset_gui(self):
         """Re-enable inputs and reset the display after a session ends."""
         self.task_entry.config(state="normal")
@@ -351,6 +354,30 @@ class FocusSessionApp:
 
         messagebox.showinfo("Focus Session Manager", "Session Complete!")
         self.reset_gui()
+        
+    def view_history(self):
+        """Open a popup window listing every past session from history.csv."""
+        history = self.data_manager.load_history()
+
+        history_window = tk.Toplevel(self.root)
+        history_window.title("Session History")
+        history_window.geometry("400x400")
+
+        if not history:
+            tk.Label(history_window, text="No sessions recorded yet.").pack(pady=20)
+            return
+
+        listbox = tk.Listbox(history_window, width=60)
+        listbox.pack(padx=10, pady=10, fill="both", expand=True)
+
+        for record in history:
+            line = (
+                f"{record['task_name']} — "
+                f"Study {record['study_minutes']}m / Rest {record['rest_minutes']}m — "
+                f"{record['status']} — "
+                f"{record['disruption_count']} disruptions"
+            )
+            listbox.insert("end", line)    
 
     def parse_positive_int(self, value):
         """Return the int value if it's a valid positive whole number, otherwise None."""
