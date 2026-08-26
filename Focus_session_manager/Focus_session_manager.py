@@ -8,6 +8,7 @@ except ImportError:
     APP_DETECTION_AVAILABLE = False
 
 import threading
+import csv
 
 try:
     from playsound import playsound
@@ -15,12 +16,47 @@ try:
 except ImportError:
     MUSIC_AVAILABLE = False
 
-#From pixabay.com, free for commercial use: https://pixabay.com/music/search/study/ 
+#From pixabay.com, free use: https://pixabay.com/music/search/study/ 
 SONG_FILES = {
     "Song 1": "Dependency files/Sound folder/alex-morgan-lofi-study-session-568160.mp3",
     "Song 2": "Dependency files/Sound folder/alex-morgan-study-lofi-music-548638.mp3",
     "Song 3": "Dependency files/Sound folder/the_mountain-cosmic-study-143288.mp3",
 }
+
+class DataManager:
+    """Handles saving and loading session history to a CSV file."""
+
+    def __init__(self, history_file="Dependency files/txt folder/history.csv"):
+        self.history_file = history_file
+        self.fieldnames = ["task_name", "study_minutes", "rest_minutes", "status", "disruption_count"]
+
+    def save_session_record(self, record):
+        """Append one session's data as a new row in the history CSV."""
+        try: 
+            '''Checks if the file already exists.'''
+            open(self.history_file, "r").close()
+            file_exists = True
+        except FileNotFoundError:
+            file_exists = False
+
+        try:
+            with open(self.history_file, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow(record)
+        except OSError:
+            pass  # not critical if saving history fails — session itself still worked
+
+    def load_history(self):
+        """Return a list of past session records, or an empty list if none exist yet."""
+        try:
+            with open(self.history_file, "r", newline="") as f:
+                return list(csv.DictReader(f))
+        except FileNotFoundError:
+            return []
+        except OSError:
+            return []
 
 class FocusSession:
     """Stores information about the current study session."""
@@ -156,6 +192,7 @@ class FocusSessionApp:
         self.session = None  # will hold a FocusSession once Start Session is pressed
         self.app_monitor = None  # will hold an AppMonitor once Start Session is pressed
         self.music_player = None  # will hold a MusicPlayer once Start Session is pressed
+        self.data_manager = DataManager()  # saves/loads session history
 
         self.create_widgets()
 
@@ -282,6 +319,15 @@ class FocusSessionApp:
 
         self.session.cancel()
         self.music_player.stop()
+
+        self.data_manager.save_session_record({
+            "task_name": self.session.task_name,
+            "study_minutes": self.session.study_minutes,
+            "rest_minutes": self.session.rest_minutes,
+            "status": "Cancelled",
+            "disruption_count": self.app_monitor.disruption_count,
+        })
+
         self.reset_gui()
 
     def session_complete(self):
@@ -294,6 +340,14 @@ class FocusSessionApp:
         self.root.focus_force()
 
         self.music_player.stop()
+
+        self.data_manager.save_session_record({
+            "task_name": self.session.task_name,
+            "study_minutes": self.session.study_minutes,
+            "rest_minutes": self.session.rest_minutes,
+            "status": "Completed",
+            "disruption_count": self.app_monitor.disruption_count,
+        })
 
         messagebox.showinfo("Focus Session Manager", "Session Complete!")
         self.reset_gui()
