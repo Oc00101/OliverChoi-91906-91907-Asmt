@@ -65,6 +65,7 @@ class AppMonitor:
         self.current_app = ""
         self.warning_shown = False  # avoids repeating the warning every check
         self.root = root  # needed to bring the window to the front before warning
+        self.disruption_count = 0  # counts how many times a warning has actually been shown
 
     def check_active_app(self):
         """Return the title of the currently active window, or '' if unavailable."""
@@ -89,6 +90,8 @@ class AppMonitor:
 
     def show_warning(self):
         """Bring the app to the front, then display a warning about the unapproved app."""
+        self.disruption_count += 1
+
         self.root.lift()
         self.root.attributes("-topmost", True)
         self.root.after_idle(self.root.attributes, "-topmost", False)
@@ -148,7 +151,7 @@ class FocusSessionApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Focus Session Manager")
-        self.root.geometry("420x650")
+        self.root.geometry("450x650")
 
         self.session = None  # will hold a FocusSession once Start Session is pressed
         self.app_monitor = None  # will hold an AppMonitor once Start Session is pressed
