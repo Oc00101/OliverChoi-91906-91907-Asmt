@@ -26,7 +26,7 @@ SONG_FILES = {
 class DataManager:
     """Handles saving and loading session history to a CSV file."""
 
-    def __init__(self, history_file="Dependency files/txt folder/history.csv"):
+    def __init__(self, history_file="Dependency files/csv folder/history.csv"):
         self.history_file = history_file
         self.fieldnames = ["task_name", "study_minutes", "rest_minutes", "status", "disruption_count"]
 
