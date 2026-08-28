@@ -222,10 +222,10 @@ class FocusSessionApp:
             self.app_vars[app_name] = var
 
         if not APP_DETECTION_AVAILABLE:
-            tk.Label(self.root, text="(App detection is only supported on Windows, please pip install pygetwindow in cmd)", font=("Arial", 8, "italic"), fg="gray").pack(pady=(0, 5))                
+            tk.Label(self.root, text="(App detection is only supported on Windows, please type 'pip install pygetwindow' in cmd)", font=("Arial", 8, "italic"), fg="gray").pack(pady=(0, 5))                
         
         if not MUSIC_AVAILABLE:
-            tk.Label(self.root, text="(Music player requires the playsound module, please pip install playsound==1.2.2 in cmd)", font=("Arial", 8, "italic"), fg="gray").pack(pady=(0, 5))
+            tk.Label(self.root, text="(Music player requires the playsound module, please type 'pip install playsound==1.2.2' in cmd)", font=("Arial", 8, "italic"), fg="gray").pack(pady=(0, 5))
             
         tk.Label(self.root, text="Music", font=("Arial", 12, "bold")).pack(pady=(15, 0))
 
